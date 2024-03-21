@@ -2,20 +2,31 @@ from matplotlib import pyplot
 from math import cos, sin, atan
 
 
-class Neuron():
+class NeuronView():
     def __init__(self, x, y):
         self.x = x
         self.y = y
 
     def draw(self, neuron_radius):
+        font = {
+            'family': 'serif',
+            'color':  'black',
+            'weight': 'normal',
+            'size': 8,
+        }
         circle = pyplot.Circle((self.x, self.y), radius=neuron_radius, fill=False)
         pyplot.gca().add_patch(circle)
-        pyplot.text(self.x-2.25, self.y, "{},{}".format(self.x, self.y))
+        pyplot.text(self.x, self.y,  self.get_neuron_text(), horizontalalignment='center', verticalalignment='center', fontdict=font)
+
+    def get_neuron_text(self):
+        return "0.0"#"{}\n{}".format(self.x, self.y)
 
 
-class Layer():
+
+
+class LayerView():
     def __init__(self, network, number_of_neurons, number_of_neurons_in_widest_layer):
-        self.scale = 5
+        self.scale = 1
         self.vertical_distance_between_layers = 6 * self.scale
         self.horizontal_distance_between_neurons = 2 * self.scale
         self.neuron_radius = 0.5 * self.scale
@@ -24,13 +35,16 @@ class Layer():
         self.y = self.__calculate_layer_y_position()
         self.neurons = self.__intialise_neurons(number_of_neurons)
 
+    def __create_neuron(self):
+        return NeuronView(self.x, self.y)
+
     def __intialise_neurons(self, number_of_neurons):
         neurons = []
-        x = self.__calculate_left_margin_so_layer_is_centered(number_of_neurons)
+        self.x = self.__calculate_left_margin_so_layer_is_centered(number_of_neurons)
         for iteration in range(number_of_neurons):
-            neuron = Neuron(x, self.y)
+            neuron = self.__create_neuron()
             neurons.append(neuron)
-            x += self.horizontal_distance_between_neurons
+            self.x += self.horizontal_distance_between_neurons
         return neurons
 
     def __calculate_left_margin_so_layer_is_centered(self, number_of_neurons):
@@ -70,14 +84,17 @@ class Layer():
         else:
             pyplot.text(x_text, self.y, 'Hidden Layer '+str(layerType), fontsize = 12)
 
-class NeuralNetwork():
+class NeuralNetworkView():
     def __init__(self, number_of_neurons_in_widest_layer):
         self.number_of_neurons_in_widest_layer = number_of_neurons_in_widest_layer
         self.layers = []
         self.layertype = 0
 
+    def __create_layer(self, number_of_neurons):
+        return LayerView(self, number_of_neurons, self.number_of_neurons_in_widest_layer)
+
     def add_layer(self, number_of_neurons ):
-        layer = Layer(self, number_of_neurons, self.number_of_neurons_in_widest_layer)
+        layer = self.__create_layer(number_of_neurons)
         self.layers.append(layer)
 
     def draw(self):
@@ -92,7 +109,33 @@ class NeuralNetwork():
         pyplot.title( 'Neural Network architecture', fontsize=15 )
         pyplot.show()
 
-class DrawNN():
+
+
+class Neuron(NeuronView):
+    def __init__(self, x, y):
+        self.weight = 0
+        self.bias = 0
+        NeuronView.__init__(x, y)
+
+    def get_neuron_text(self):
+        return "{}\n{}".format(self.weight, self.bias)
+
+class Layer(LayerView):
+    def __init__(self, network, number_of_neurons, number_of_neurons_in_widest_layer):
+        LayerView.__init__(network, number_of_neurons, number_of_neurons_in_widest_layer)
+
+    def __create_neuron(self):
+        return Neuron(self.x, self.y)
+
+class NeuralNetwork(NeuralNetworkView):
+    def __init__(self, number_of_neurons_in_widest_layer):
+        NeuralNetworkView.__init__(self, number_of_neurons_in_widest_layer)
+
+    def __create_layer(self, number_of_neurons):
+        return Layer(self, number_of_neurons, self.number_of_neurons_in_widest_layer)
+
+
+class Model():
     def __init__( self, neural_network ):
         self.neural_network = neural_network
 
@@ -104,8 +147,8 @@ class DrawNN():
         network.draw()
 
 def main():
-    network = DrawNN( [2,8,8,1] )
-    network.draw()
+    model = Model( [2,8,8,1] )
+    model.draw()
 
 if __name__=="__main__":
     main()
