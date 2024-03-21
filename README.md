@@ -26,10 +26,16 @@ These instructions will get you a copy of the project up and running on your loc
 
 1. Fork/Clone
 
-1. Create and activate a virtual environment:
+1. Create the virtual environment:
 
     ```sh
-    $ python3 -m venv venv && source venv/bin/activate
+    $ python3 -m venv venv
+    ```
+
+1. Activate the virtual environment:
+
+    ```sh
+    $ source venv/bin/activate
     ```
 
 ## Installing
