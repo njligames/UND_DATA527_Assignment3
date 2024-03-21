@@ -1,3 +1,9 @@
+# James Folk
+# DATA 527 – Predictive Modeling
+# Assignment 3
+# DEADLINE: March 28, 2024
+# Spring 2024
+
 from matplotlib import pyplot
 from math import cos, sin, atan
 
