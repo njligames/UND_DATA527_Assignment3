@@ -1,9 +1,9 @@
 # Assignment 3
- James Folk 
- DATA 527 – Predictive Modeling 
- Assignment 3 
- DEADLINE: March 28, 2024 
- Spring 2024 
+ - James Folk 
+ - DATA 527 – Predictive Modeling 
+ - Assignment 3 
+ - DEADLINE: March 28, 2024 
+ - Spring 2024 
 
 ## Table of Contents
 
@@ -14,10 +14,10 @@
  - [Contributing](#contributing)
 
 ## About
-Write about 1-2 paragraphs describing the purpose of your project.
+Could you write about 1-2 paragraphs describing the purpose of your project?
 
 ## Getting Started
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
+These instructions will get you a copy of the project up and running on your local machine for development and testing.
 
 1. Fork/Clone
 
