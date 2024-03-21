@@ -34,6 +34,11 @@ Installation instructions.
 
 ## Usage
 A step by step series of examples that tell you how to get a development env running.
+1. Run
+
+    ```sh
+    (venv)$ python3 FFNNImplementation.py
+    ```
 
 ## Contributing
 Contributors names.
