@@ -5,8 +5,10 @@
 # Spring 2024
 
 from matplotlib import pyplot
-from math import cos, sin, atan
+from math import cos, sin, atan, exp
+import os
 
+## View
 
 class NeuronView():
     def __init__(self, x, y):
@@ -26,9 +28,6 @@ class NeuronView():
 
     def get_neuron_text(self):
         return "0.0"#"{}\n{}".format(self.x, self.y)
-
-
-
 
 class LayerView():
     def __init__(self, network, number_of_neurons, number_of_neurons_in_widest_layer):
@@ -116,45 +115,130 @@ class NeuralNetworkView():
         pyplot.show()
 
 
+## Model
+
+class NeuronEdge():
+    def __init__(self, neuron, weight = int.from_bytes(os.urandom(8), byteorder="big") / ((1 << 64) - 1)):
+        self.neuron = neuron
+        self.weight = weight
+
+    def calc():
+        self.neuron.bias * self.weight
 
 class Neuron(NeuronView):
     def __init__(self, x, y):
-        self.weight = 0
+        super().__init__(x, y)
+
+        # edges coming from previous layer
+        self.parents = []
+
+        # edges going to the next layer
+        self.children = []
+
         self.bias = 0
-        NeuronView.__init__(x, y)
+
+    def get_number_of_children(self):
+        return len(self.children)
+
+    def get_child_neuron(self, index):
+        if index >= 0 and index < len(self.children):
+            return self.children[index].neuron
+        return None
+
+    def get_child_weight(self, index):
+        if index >= 0 and index < len(self.children):
+            return self.children[index].weight
+        return None
+
+    def get_number_of_parents(self):
+        return len(self.parents)
+
+    def get_parent_neuron(self, index):
+        if index >= 0 and index < len(self.parents):
+            return self.parents[index].neuron
+        return None
+
+    def get_parent_weight(self, index):
+        if index >= 0 and index < len(self.parents):
+            return self.parents[index].weight
+        return None
 
     def get_neuron_text(self):
-        return "{}\n{}".format(self.weight, self.bias)
+        return "{}".format(self.bias)
+
+    def calculate_value(self):
+        def sigmoid(x):
+            return 1 / (1 + math.exp(-x))
+
+        input_array = []
+        for in_edge in self.parents:
+            input_array.append(in_edge.calc())
+        return sigmoid(sum(input_array))
 
 class Layer(LayerView):
     def __init__(self, network, number_of_neurons, number_of_neurons_in_widest_layer):
-        LayerView.__init__(network, number_of_neurons, number_of_neurons_in_widest_layer)
+        super().__init__(network, number_of_neurons, number_of_neurons_in_widest_layer)
+        self.__init_layer()
 
-    def __create_neuron(self):
+    def __init_layer(self):
+        for neuron in self.neurons:
+            if None != self.previous_layer:
+                # init children of previous layer neurons
+                for prev_neuron in self.previous_layer.neurons:
+                    prev_neuron.children.append(NeuronEdge(neuron))
+                # init parents of current layer neurons
+                for prev_neuron in self.previous_layer.neurons:
+                    neuron.parents.append(NeuronEdge(prev_neuron))
+
+    def _LayerView__create_neuron(self):
         return Neuron(self.x, self.y)
+
+    def get_number_of_neurons(self):
+        return len(self.neurons)
+
+    def get_neuron(self, index):
+        if index >= 0 and index < len(self.neurons):
+            return self.neurons[index]
+        return None
+
+
 
 class NeuralNetwork(NeuralNetworkView):
     def __init__(self, number_of_neurons_in_widest_layer):
-        NeuralNetworkView.__init__(self, number_of_neurons_in_widest_layer)
+        super().__init__(number_of_neurons_in_widest_layer)
 
-    def __create_layer(self, number_of_neurons):
+    def _NeuralNetworkView__create_layer(self, number_of_neurons):
         return Layer(self, number_of_neurons, self.number_of_neurons_in_widest_layer)
+
+    def get_number_of_layers(self):
+        return len(self.layers)
+
+    def get_layer(self, index):
+        if index >= 0 and index < len(self.layers):
+            return self.layers[index]
+        return None
 
 
 class Model():
     def __init__( self, neural_network ):
         self.neural_network = neural_network
+        widest_layer = max( self.neural_network )
+        self.network = NeuralNetwork( widest_layer )
+        for l in self.neural_network:
+            self.network.add_layer(l)
 
     def draw( self ):
-        widest_layer = max( self.neural_network )
-        network = NeuralNetwork( widest_layer )
-        for l in self.neural_network:
-            network.add_layer(l)
-        network.draw()
+        self.network.draw()
+
+    def get_input_neuron(self, index):
+        if self.network.get_number_of_layers() > 0 and index >= 0 and index < self.network.get_layer(0).get_number_of_neurons():
+            return self.network.get_layer(0).get_neuron(index)
+        return None
 
 def main():
-    model = Model( [2,8,8,1] )
+    model = Model( [2,2,1] )
     model.draw()
 
 if __name__=="__main__":
     main()
+
