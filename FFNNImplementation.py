@@ -5,8 +5,10 @@
 # Spring 2024
 
 from matplotlib import pyplot
-from math import cos, sin, atan, exp
+import math
+from math import cos, sin, atan
 import os
+import random
 
 ## View
 
@@ -114,26 +116,24 @@ class NeuralNetworkView():
         pyplot.title( 'Neural Network architecture', fontsize=15 )
         pyplot.show()
 
-
 ## Model
 
 class NeuronEdge():
-    def __init__(self, neuron, weight = int.from_bytes(os.urandom(8), byteorder="big") / ((1 << 64) - 1)):
+    def __init__(self, neuron):
         self.neuron = neuron
-        self.weight = weight
-
-    def calc():
-        self.neuron.bias * self.weight
 
 class Neuron(NeuronView):
     def __init__(self, x, y):
         super().__init__(x, y)
 
-        # edges coming from previous layer
+        # neurons coming from previous layer
         self.parents = []
 
-        # edges going to the next layer
+        # neurons going to the next layer
         self.children = []
+
+        # weights between current neuron to child neuron
+        self.weights = []
 
         self.bias = 0
 
@@ -145,11 +145,6 @@ class Neuron(NeuronView):
             return self.children[index].neuron
         return None
 
-    def get_child_weight(self, index):
-        if index >= 0 and index < len(self.children):
-            return self.children[index].weight
-        return None
-
     def get_number_of_parents(self):
         return len(self.parents)
 
@@ -158,22 +153,18 @@ class Neuron(NeuronView):
             return self.parents[index].neuron
         return None
 
-    def get_parent_weight(self, index):
-        if index >= 0 and index < len(self.parents):
-            return self.parents[index].weight
-        return None
-
     def get_neuron_text(self):
         return "{}".format(self.bias)
 
-    def calculate_value(self):
-        def sigmoid(x):
-            return 1 / (1 + math.exp(-x))
+    def calculate(self, idx_neuron, activation_func = None):
+        current_sum = 0
+        for idx in range(0, self.get_number_of_parents()):
+            current_sum += self.get_parent_neuron(idx).weights[idx_neuron] * self.get_parent_neuron(idx).bias
 
-        input_array = []
-        for in_edge in self.parents:
-            input_array.append(in_edge.calc())
-        return sigmoid(sum(input_array))
+        if None != activation_func:
+            self.bias = activation_func(current_sum)
+        else:
+            self.bias = current_sum
 
 class Layer(LayerView):
     def __init__(self, network, number_of_neurons, number_of_neurons_in_widest_layer):
@@ -181,6 +172,11 @@ class Layer(LayerView):
         self.__init_layer()
 
     def __init_layer(self):
+        if None != self.previous_layer:
+            for prev_neuron in self.previous_layer.neurons:
+                for neuron in self.neurons:
+                    prev_neuron.weights.append(random.random())
+
         for neuron in self.neurons:
             if None != self.previous_layer:
                 # init children of previous layer neurons
@@ -218,6 +214,9 @@ class NeuralNetwork(NeuralNetworkView):
             return self.layers[index]
         return None
 
+    def get_output_layer(self):
+        return self.get_layer(self.get_number_of_layers() - 1)
+
 
 class Model():
     def __init__( self, neural_network ):
@@ -234,6 +233,195 @@ class Model():
         if self.network.get_number_of_layers() > 0 and index >= 0 and index < self.network.get_layer(0).get_number_of_neurons():
             return self.network.get_layer(0).get_neuron(index)
         return None
+
+    def feed_forward(self, inputs):
+        ########################
+        # feed the neural network with the input: the output of each node in the hidden
+        # layers and the output layer is calculated
+        ########################
+
+        input_neurons = []
+        input_neurons.append(self.get_input_neuron(0))
+        input_neurons.append(self.get_input_neuron(1))
+
+        input_neurons[0].bias = inputs[0]
+        input_neurons[1].bias = inputs[1]
+
+        def sigmoid(x):
+            return 1 / (1 + math.exp(-x))
+
+        self.network.get_layer(1).get_neuron(0).calculate(0, sigmoid)
+        self.network.get_layer(1).get_neuron(1).calculate(1, sigmoid)
+        self.network.get_layer(2).get_neuron(0).calculate(0)
+
+        output_layer = self.network.get_output_layer()
+        neuron = output_layer.get_neuron(0)
+        return neuron.bias
+
+    def back_propagate(self, error, LR):
+        ########################
+        # backpropagate the error and calculate the derivative with the respect to each weight
+        ########################
+
+        output_layer = self.network.get_output_layer()
+        neuron = output_layer.get_neuron(0)
+
+        output_o1 = output_layer.get_neuron(0).bias
+        w5        = neuron.get_parent_neuron(0).weights[0]
+        w6        = neuron.get_parent_neuron(1).weights[0]
+        output_h1 = neuron.get_parent_neuron(0).bias
+        output_h2 = neuron.get_parent_neuron(1).bias
+        output_i1 = neuron.get_parent_neuron(0).get_parent_neuron(0).bias
+        output_i2 = neuron.get_parent_neuron(0).get_parent_neuron(1).bias
+
+        # w5
+        # delta_w5 = error * [output_o1 * (1 - output_o1)] * output_h1
+        delta_w5 = error * (output_o1 * (1 - output_o1)) * output_h1
+
+        # w6
+        # delta_w6 = error * [output_o1 * (1 - output_o1)] * output_h2
+        delta_w6 = error * (output_o1 * (1 - output_o1)) * output_h2
+
+        # w1
+        # deltaE_w1 = error * [output_o1 * (1 - output_o1)] * w5
+        deltaE_w1 = error * (output_o1 * (1 - output_o1)) * w5
+        # delta_w1 = deltaE_w1 * (output_h1 * (1 - output_h1)) * output_i1
+        delta_w1 = deltaE_w1 * (output_h1 * (1 - output_h1)) * output_i1
+
+        # w2
+        # deltaE_w2 = error * [output_o1 * (1 - output_o1)] * w6
+        deltaE_w2 = error * (output_o1 * (1 - output_o1)) * w6
+        # delta_w2 = deltaE_w2 * (output_h2 * (1 - output_h2)) * output_i1
+        delta_w2 = deltaE_w2 * (output_h2 * (1 - output_h2)) * output_i1
+
+        # w3
+        # deltaE_w3 = error * [output_o1 * (1 - output_o1)] * w5
+        deltaE_w3 = error * (output_o1 * (1 - output_o1)) * w5
+        # delta_w3 = deltaE_w3 * (output_h1 * (1 - output_h1)) * output_i2
+        delta_w3 = deltaE_w3 * (output_h1 * (1 - output_h1)) * output_i2
+
+        # w4
+        # deltaE_w4 = error * [output_o1 * (1 - output_o1)] * w6
+        deltaE_w4 = error * (output_o1 * (1 - output_o1)) * w6
+        # delta_w4 = deltaE_w4 * (output_h2 * (1 - output_h2)) * output_i2
+        delta_w4 = deltaE_w4 * (output_h2 * (1 - output_h2)) * output_i2
+
+        ###################
+        # update each weight
+        ###################
+
+        # w5_new = w5_old - (LR * delta_w5)
+        neuron.get_parent_neuron(0).weights[0] = neuron.get_parent_neuron(0).weights[0] - (LR * delta_w5)
+        # w6_new = w6_old - (LR * delta_w6)
+        neuron.get_parent_neuron(1).weights[0] = neuron.get_parent_neuron(1).weights[0] - (LR * delta_w6)
+
+        # w1_new = w1_old - (LR * delta_w1)
+        neuron.get_parent_neuron(0).get_parent_neuron(0).weights[0] = neuron.get_parent_neuron(0).get_parent_neuron(0).weights[0] - (LR * delta_w1)
+        # w2_new = w2_old - (LR * delta_w2)
+        neuron.get_parent_neuron(0).get_parent_neuron(0).weights[1] = neuron.get_parent_neuron(0).get_parent_neuron(0).weights[1] - (LR * delta_w2)
+        # w3_new = w3_old - (LR * delta_w3)
+        neuron.get_parent_neuron(0).get_parent_neuron(1).weights[0] = neuron.get_parent_neuron(0).get_parent_neuron(1).weights[0] - (LR * delta_w3)
+        # w4_new = w4_old - (LR * delta_w4)
+        neuron.get_parent_neuron(0).get_parent_neuron(1).weights[1] = neuron.get_parent_neuron(0).get_parent_neuron(1).weights[1] - (LR * delta_w4)
+
+    def __RMSE(self, dependantVariables, predictedArray):
+        if len(dependantVariables) != len(predictedArray):
+            raise ValueError("Length of dependant  values and predicted values must be the same.")
+
+        m = len(dependantVariables)
+        def step2Function(actual, predicted):
+            return (predicted - actual) ** 2
+        return math.sqrt(sum(step2Function(actual, predicted) for actual, predicted in zip(predictedArray, dependantVariables)) / (m))
+
+    def iterate(self, inputs, outputs, LR):
+        errors = [0] * len(inputs)
+        predictedArray = [0] * len(inputs)
+        for idx in range(0, len(inputs)):
+            predictedArray[idx] = self.feed_forward(inputs[idx])
+            errors[idx] = (outputs[idx] - predictedArray[idx])
+
+        rmse_error = self.__RMSE(outputs, predictedArray)
+
+        for error in errors:
+            self.back_propagate(error, LR)
+
+        return rmse_error
+
+    def iterate_training(self, inputs, outputs, LR):
+
+        predicted = outputs[0]
+
+        self.feed_forward(inputs)
+
+        ########################
+        # calculate the error, which is the estimated – the actual value
+        ########################
+        output_layer = self.network.get_output_layer()
+        neuron = output_layer.get_neuron(0)
+        actual    = neuron.bias
+
+        error = (predicted - actual)
+
+        ########################
+        # backpropagate the error and calculate the derivative with the respect to each weight
+        ########################
+
+        output_o1 = output_layer.get_neuron(0).bias
+        w5        = neuron.get_parent_neuron(0).weights[0]
+        output_h1 = neuron.get_parent_neuron(0).bias
+        output_h2 = neuron.get_parent_neuron(1).bias
+        output_i1 = neuron.get_parent_neuron(0).get_parent_neuron(0).bias
+        output_i2 = neuron.get_parent_neuron(0).get_parent_neuron(1).bias
+
+        # w5
+        # delta_w5 = error * [output_o1 * (1 - output_o1)] * output_h1
+        delta_w5 = error * (output_o1 * (1 - output_o1)) * output_h1
+
+        # w6
+        # delta_w6 = error * [output_o1 * (1 - output_o1)] * output_h2
+        delta_w6 = error * (output_o1 * (1 - output_o1)) * output_h2
+
+        # w1
+        # deltaE_w1 = error * [output_o1 * (1 - output_o1)] * w5
+        deltaE_w1 = error * (output_o1 * (1 - output_o1)) * neuron.get_parent_neuron(0).weights[0]
+        # delta_w1 = deltaE_w1 * (output_h1 * (1 - output_h1)) * output_i1
+        delta_w1 = deltaE_w1 * (output_h1 * (1 - output_h1)) * output_i1
+
+        # w2
+        # deltaE_w2 = error * [output_o1 * (1 - output_o1)] * w6
+        deltaE_w2 = error * (output_o1 * (1 - output_o1)) * neuron.get_parent_neuron(1).weights[0]
+        # delta_w2 = deltaE_w2 * (output_h2 * (1 - output_h2)) * output_i1
+        delta_w2 = deltaE_w2 * (output_h2 * (1 - output_h2)) * output_i1
+
+        # w3
+        # deltaE_w3 = error * [output_o1 * (1 - output_o1)] * w5
+        deltaE_w3 = error * (output_o1 * (1 - output_o1)) * neuron.get_parent_neuron(0).weights[0]
+        # delta_w3 = deltaE_w3 * (output_h1 * (1 - output_h1)) * output_i2
+        delta_w3 = deltaE_w3 * (output_h1 * (1 - output_h1)) * output_i2
+
+        # w4
+        # deltaE_w4 = error * [output_o1 * (1 - output_o1)] * w6
+        deltaE_w4 = error * (output_o1 * (1 - output_o1)) * neuron.get_parent_neuron(1).weights[0]
+        # delta_w4 = deltaE_w4 * (output_h2 * (1 - output_h2)) * output_i2
+        delta_w4 = deltaE_w4 * (output_h2 * (1 - output_h2)) * output_i2
+
+        ###################
+        # update each weight
+        ###################
+
+        # w5_new = w5_old - (LR * delta_w5)
+        neuron.get_parent_neuron(0).weights[0] = neuron.get_parent_neuron(0).weights[0] - (LR * delta_w5)
+        # w6_new = w6_old - (LR * delta_w6)
+        neuron.get_parent_neuron(1).weights[0] = neuron.get_parent_neuron(1).weights[0] - (LR * delta_w6)
+
+        # w1_new = w1_old - (LR * delta_w1)
+        neuron.get_parent_neuron(0).get_parent_neuron(0).weights[0] = neuron.get_parent_neuron(0).get_parent_neuron(0).weights[0] - (LR * delta_w1)
+        # w2_new = w2_old - (LR * delta_w2)
+        neuron.get_parent_neuron(0).get_parent_neuron(0).weights[1] = neuron.get_parent_neuron(0).get_parent_neuron(0).weights[1] - (LR * delta_w2)
+        # w3_new = w3_old - (LR * delta_w3)
+        neuron.get_parent_neuron(0).get_parent_neuron(1).weights[0] = neuron.get_parent_neuron(0).get_parent_neuron(1).weights[0] - (LR * delta_w3)
+        # w4_new = w4_old - (LR * delta_w4)
+        neuron.get_parent_neuron(0).get_parent_neuron(1).weights[1] = neuron.get_parent_neuron(0).get_parent_neuron(1).weights[1] - (LR * delta_w4)
 
 def main():
     model = Model( [2,2,1] )
