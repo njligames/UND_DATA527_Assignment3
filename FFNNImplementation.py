@@ -9,6 +9,8 @@ import math
 from math import cos, sin, atan
 import os
 import random
+import matplotlib.pyplot as plt;
+import json
 
 ## View
 
@@ -137,6 +139,12 @@ class Neuron(NeuronView):
 
         self.bias = 0
 
+    def __str__(self):
+        return "{\"bias\":" + str(self.bias) + ",\"weights\":" + str(self.weights) + "}"
+
+    def __repr__(self):
+        return self.__str__()
+
     def get_number_of_children(self):
         return len(self.children)
 
@@ -171,6 +179,13 @@ class Layer(LayerView):
         super().__init__(network, number_of_neurons, number_of_neurons_in_widest_layer)
         self.__init_layer()
 
+    def __str__(self):
+        s = "{\"neurons\":  " + str(self.neurons) + " }"
+        return s
+
+    def __repr__(self):
+        return self.__str__()
+
     def __init_layer(self):
         if None != self.previous_layer:
             for prev_neuron in self.previous_layer.neurons:
@@ -203,6 +218,11 @@ class NeuralNetwork(NeuralNetworkView):
     def __init__(self, number_of_neurons_in_widest_layer):
         super().__init__(number_of_neurons_in_widest_layer)
 
+    def __str__(self):
+        s = "{\"layers\":  " + str(self.layers) + " }"
+        return s
+
+
     def _NeuralNetworkView__create_layer(self, number_of_neurons):
         return Layer(self, number_of_neurons, self.number_of_neurons_in_widest_layer)
 
@@ -225,6 +245,9 @@ class Model():
         self.network = NeuralNetwork( widest_layer )
         for l in self.neural_network:
             self.network.add_layer(l)
+
+    def __str__(self):
+        return str(self.network)
 
     def draw( self ):
         self.network.draw()
@@ -423,9 +446,79 @@ class Model():
         # w4_new = w4_old - (LR * delta_w4)
         neuron.get_parent_neuron(0).get_parent_neuron(1).weights[1] = neuron.get_parent_neuron(0).get_parent_neuron(1).weights[1] - (LR * delta_w4)
 
-def main():
+def calculate_r_squared(y_true, y_pred):
+    if len(y_true) != len(y_pred):
+        raise ValueError("Length of dependant values and predicted values must be the same.")
+
+    # Calculate the mean of the true values
+    mean_y_true = sum(y_true) / len(y_true)
+
+    # Calculate the total sum of squares (TSS) without using sum
+    tss = 0
+    for y in y_true:
+        tss += (y - mean_y_true) ** 2
+
+    # Calculate the residual sum of squares (RSS) without using sum
+    rss = 0
+    for true_val, pred_val in zip(y_true, y_pred):
+        rss += (true_val - pred_val) ** 2
+
+    # Calculate R-squared
+    r_squared = 1 - (rss / tss)
+
+    return r_squared
+
+def train_neural_network(independentVariablesArray, dependantVariables, LR = 0.001, N = 10000):
     model = Model( [2,2,1] )
+    errorArray = []
+
+    for n in range(N):
+        error = model.iterate(independentVariablesArray, dependantVariables, LR)
+        errorArray.append(error)
+    return model, errorArray
+
+def estimate_r_squared(model, independentVariablesArray, dependantVariables):
+    predictedArray = []
+    for independentVariable in independentVariablesArray:
+        predictedArray.append(model.feed_forward(independentVariable))
+    rValue = calculate_r_squared(dependantVariables, predictedArray)
+    return rValue
+
+def use_model(model, a, b):
+    return model.feed_forward([a, b])
+
+def main():
+    independentVariablesArray = [
+            [0, 0],
+            [1, 0],
+            [0, 1],
+            [1, 1]
+            ]
+    dependantVariables = [ 0, 1, 1, 0 ]
+
+    LR = 0.001
+    N = 10000
+    model, errorArray = train_neural_network(independentVariablesArray, dependantVariables, LR, N)
     model.draw()
+
+    plt.plot(errorArray)
+    plt.savefig('data/BatchGradientDescent_MSE.pdf', dpi=150)
+    plt.show()
+
+    rValue = estimate_r_squared(model, independentVariablesArray, dependantVariables)
+
+    with open("data/ModelParameters.json", 'w') as file:
+        if [] == errorArray:
+            dictionary={"learningRate":LR, "iterations":N, "final mse":errorArray, "r value":rValue, "neural network": json.loads(str(model))}
+        else:
+            dictionary={"learningRate":LR, "iterations":N, "final mse":errorArray[-1], "r value":rValue, "neural network": json.loads(str(model))}
+
+        json.dump(dictionary, file, indent=2)
+
+    i = 0
+    for var in independentVariablesArray:
+        print("Ran model, got {}, should be {}".format(use_model(model, var[0], var[1]), dependantVariables[i]))
+        i = i + 1
 
 if __name__=="__main__":
     main()
